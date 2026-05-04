@@ -39,6 +39,18 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
+// ── RESPONSIVE HOOK ──────────────────────────────────────────────
+function useWindowWidth(){
+  const [w,setW]=useState(window.innerWidth);
+  useEffect(()=>{
+    function handle(){setW(window.innerWidth);}
+    window.addEventListener("resize",handle);
+    return()=>window.removeEventListener("resize",handle);
+  },[]);
+  return w;
+}
+
+
 // ── ICONS ──────────────────────────────────────────────────────
 const SVGS={
   MapPin:'<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/>',
@@ -153,8 +165,7 @@ function SceneClearDay(){
           <path d="M0 178 Q100 158 200 165 Q300 172 400 160 L400 200 L0 200Z" fill="#166534" opacity="0.7"/>
         </svg>
       </div>
-      {/* Content overlay - top fade */}
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.15) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.35) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.45) 0%,rgba(0,0,0,0.2) 35%,rgba(0,0,0,0.3) 65%,rgba(0,0,0,0.65) 100%)"}}/>
     </div>
   );
 }
@@ -178,7 +189,7 @@ function SceneSunrise(){
           <path d="M0 130 Q100 100 200 115 Q300 130 400 110 L400 180 L0 180Z" fill="#0a0f1c" opacity="0.95"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.3) 0%,transparent 35%,transparent 55%,rgba(0,0,0,0.5) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.15) 35%,rgba(0,0,0,0.25) 55%,rgba(0,0,0,0.7) 100%)"}}/>
     </div>
   );
 }
@@ -206,7 +217,7 @@ function SceneSunset(){
           <path d="M0 165 Q200 155 400 165 L400 180 L0 180Z" fill="#030712"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.35) 0%,transparent 30%,transparent 55%,rgba(0,0,0,0.55) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.6) 0%,rgba(0,0,0,0.2) 30%,rgba(0,0,0,0.25) 55%,rgba(0,0,0,0.75) 100%)"}}/>
     </div>
   );
 }
@@ -238,7 +249,7 @@ function SceneNightClear(){
           <path d="M0 172 Q120 158 240 165 Q320 170 400 162 L400 200 L0 200Z" fill="#020408"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.2) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.4) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.45) 0%,rgba(0,0,0,0.1) 30%,rgba(0,0,0,0.15) 60%,rgba(0,0,0,0.65) 100%)"}}/>
     </div>
   );
 }
@@ -260,7 +271,7 @@ function SceneNightWarm(){
           <path d="M0 162 Q120 140 240 152 Q320 160 400 148 L400 200 L0 200Z" fill="#06020e"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.25) 0%,transparent 35%,transparent 60%,rgba(0,0,0,0.45) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.45) 0%,rgba(0,0,0,0.1) 35%,rgba(0,0,0,0.15) 60%,rgba(0,0,0,0.6) 100%)"}}/>
     </div>
   );
 }
@@ -293,7 +304,7 @@ function SceneRain(){
           <rect x="0" y="170" width="400" height="30" fill="#0a0f1a"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.25) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.5) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.15) 30%,rgba(0,0,0,0.2) 60%,rgba(0,0,0,0.7) 100%)"}}/>
     </div>
   );
 }
@@ -324,7 +335,7 @@ function SceneSnow(){
           <path d="M0 195 Q200 185 400 195 L400 220 L0 220Z" fill="white"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.15) 0%,transparent 25%,transparent 60%,rgba(0,0,0,0.25) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.35) 25%,rgba(0,0,0,0.35) 60%,rgba(0,0,0,0.7) 100%)"}}/>
     </div>
   );
 }
@@ -368,7 +379,7 @@ function SceneStorm(){
           <rect x="0" y="185" width="400" height="15" fill="#030712"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.4) 0%,transparent 35%,transparent 55%,rgba(0,0,0,0.6) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.2) 35%,rgba(0,0,0,0.2) 55%,rgba(0,0,0,0.75) 100%)"}}/>
     </div>
   );
 }
@@ -395,7 +406,7 @@ function SceneCloudy(){
           <path d="M0 175 Q150 162 300 170 Q360 173 400 168 L400 200 L0 200Z" fill="#111827"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.2) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.4) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.2) 30%,rgba(0,0,0,0.25) 60%,rgba(0,0,0,0.65) 100%)"}}/>
     </div>
   );
 }
@@ -416,7 +427,7 @@ function SceneHot(){
           <path d="M0 175 Q200 162 400 172 L400 200 L0 200Z" fill="#1c0a00"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.3) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.45) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.2) 30%,rgba(0,0,0,0.25) 60%,rgba(0,0,0,0.7) 100%)"}}/>
     </div>
   );
 }
@@ -447,7 +458,7 @@ function SceneColdClear(){
           <rect x="0" y="175" width="400" height="25" fill="#0a1525"/>
         </svg>
       </div>
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.25) 0%,transparent 30%,transparent 60%,rgba(0,0,0,0.4) 100%)"}}/>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.15) 30%,rgba(0,0,0,0.2) 60%,rgba(0,0,0,0.65) 100%)"}}/>
     </div>
   );
 }
@@ -1127,7 +1138,7 @@ function SettingsDrawer({prefs,onSavePrefs,onClose,onFbSave,onFbLoad,syncStatus}
             <FieldLabel>Load from another device</FieldLabel>
             <div style={{display:"flex",gap:8}}>
               <TInput value={loadKey} onChange={e=>setLoadKey(e.target.value)} placeholder="Enter sync key"/>
-              <button onClick={()=>{saveFbConfig();onFbLoad(fbUrl.trim(),loadKey.trim());}} style={{flexShrink:0,display:"flex",alignItems:"center",gap:5,padding:"9px 12px",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"rgba(255,255,255,0.7)",fontFamily:"'DM Sans'",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}><Icon name="ArrowDownToLine" size={12}/> Load</button>
+              <button onClick={()=>{if(!loadKey.trim())return;saveFbConfig();onFbLoad(fbUrl.trim(),loadKey.trim(),function(k){setSyncKey(k);setLoadKey("");});}} style={{flexShrink:0,display:"flex",alignItems:"center",gap:5,padding:"9px 12px",background:loadKey.trim()?"rgba(56,189,248,0.18)":"rgba(255,255,255,0.08)",border:loadKey.trim()?"1px solid rgba(56,189,248,0.3)":"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:loadKey.trim()?"#38bdf8":"rgba(255,255,255,0.5)",fontFamily:"'DM Sans'",fontSize:12,cursor:loadKey.trim()?"pointer":"default",whiteSpace:"nowrap"}}><Icon name="ArrowDownToLine" size={12}/> Load</button>
             </div>
           </div>
 
@@ -1162,6 +1173,8 @@ function App(){
   const [envMemory,setEnvMemory]       = useState(store.get("envMemory")||{});
 
   const STALE=30*60*1000;
+  const winW=useWindowWidth();
+  const isIPad=winW>=768;
   const activeLoc=locations.find(l=>l.id===activeLocId)||locations[0];
   const wx=wxCache[activeLocId];
   const isLoading=!!loadingLoc[activeLocId];
@@ -1222,7 +1235,7 @@ function App(){
     }catch{setSyncStatus("error");}
     setTimeout(()=>setSyncStatus(null),3000);
   };
-  const handleFbLoad=async(dbUrl,key)=>{
+  const handleFbLoad=async(dbUrl,key,onKeyAccepted)=>{
     if(!dbUrl||!key){setSyncStatus("error");return;}setSyncStatus("loading");
     try{
       const data=await fbLoad(dbUrl,key);
@@ -1230,6 +1243,8 @@ function App(){
       if(data.locations){setLocations(data.locations);store.set("locations",data.locations);}
       if(data.prefs)setPrefs(data.prefs);
       if(data.groups){setGroups(data.groups);store.set("groups",data.groups);}
+      store.set("syncKey",key);
+      if(onKeyAccepted)onKeyAccepted(key);
       setSyncStatus("success");
     }catch{setSyncStatus("error");}
     setTimeout(()=>setSyncStatus(null),3000);
@@ -1258,7 +1273,7 @@ function App(){
 
         {/* HEADER */}
         <div className="safe-top">
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 18px 12px",maxWidth:480,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 18px 12px",maxWidth:isIPad?960:480,margin:"0 auto"}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}><AtlasIcon size={36}/><span style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:400,color:"rgba(255,255,255,0.95)",letterSpacing:"0.06em",textShadow:"0 1px 6px rgba(0,0,0,0.5)"}}>ATLAS</span></div>
             <div style={{display:"flex",gap:7,alignItems:"center"}}>
               <IconBtn onClick={refreshLoc} style={{color:locLoading?"#38bdf8":"rgba(255,255,255,0.6)"}}><Icon name="Crosshair" size={14}/></IconBtn>
@@ -1270,7 +1285,7 @@ function App(){
         </div>
 
         {/* LOCATION PILLS */}
-        <div style={{display:"flex",gap:7,padding:"0 18px",maxWidth:480,margin:"0 auto",overflowX:"auto",alignItems:"center"}}>
+        <div style={{display:"flex",gap:7,padding:"0 18px",maxWidth:isIPad?960:480,margin:"0 auto",overflowX:"auto",alignItems:"center"}}>
           <Pill active={false} onClick={()=>setShowGroups(true)} style={{background:"rgba(0,0,0,0.25)",border:"1px solid rgba(255,255,255,0.18)",color:"rgba(255,255,255,0.7)",display:"flex",alignItems:"center",gap:5}}>
             <Icon name="Layers" size={11}/> Groups
           </Pill>
@@ -1282,49 +1297,101 @@ function App(){
           ))}
         </div>
 
-        {/* HERO */}
-        <div style={{maxWidth:480,margin:"0 auto"}}>
-          {isLoading&&<LoadingState/>}
-          {error&&!isLoading&&<ErrorState message={error} onRetry={()=>{setErrorLoc(p=>Object.assign({},p,{[activeLocId]:null}));loadWeather(activeLoc);}}/>}
-          {wx&&!isLoading&&(
-            <div>
-              <WeatherHero wx={wx.current} loc={activeLoc} prefs={prefs}/>
-              <AtmosphereTag cond={wx.current.condition} hour={localHour} temp={wx.current.temp} wind={wx.current.wind}/>
-              <DailyNarrative current={wx.current} daily={wx.daily} hourly={wx.hourly}/>
-              {lastUpdated&&<div style={{textAlign:"center",fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.3)",marginTop:2,letterSpacing:"0.05em"}}>{lastUpdated}</div>}
-            </div>
-          )}
-        </div>
+        {isIPad?(
+          /* ── iPAD 2-COLUMN LAYOUT ── */
+          <div style={{maxWidth:960,margin:"0 auto",padding:"0 18px",display:"flex",gap:20,alignItems:"flex-start"}}>
 
-        {/* NAV TABS */}
-        <div style={{display:"flex",justifyContent:"center",padding:"12px 20px",maxWidth:480,margin:"0 auto"}}>
-          <div style={{display:"flex",background:"rgba(0,0,0,0.3)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderRadius:14,padding:3,border:"1px solid rgba(255,255,255,0.12)",gap:2}}>
-            {NAV.map(({id,label,icon})=>(
-              <button key={id} onClick={()=>setTab(id)} style={{padding:"7px 15px",borderRadius:11,border:"none",background:tab===id?"rgba(255,255,255,0.18)":"transparent",color:tab===id?"#fff":"rgba(255,255,255,0.55)",fontFamily:"'DM Sans'",fontSize:12,fontWeight:tab===id?600:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
-                <Icon name={icon} size={12}/>{label}
-              </button>
-            ))}
+            {/* LEFT COLUMN — hero + narrative */}
+            <div style={{flex:"0 0 400px",position:"sticky",top:0}}>
+              {isLoading&&<LoadingState/>}
+              {error&&!isLoading&&<ErrorState message={error} onRetry={()=>{setErrorLoc(p=>Object.assign({},p,{[activeLocId]:null}));loadWeather(activeLoc);}}/>}
+              {wx&&!isLoading&&(
+                <div>
+                  <WeatherHero wx={wx.current} loc={activeLoc} prefs={prefs}/>
+                  <AtmosphereTag cond={wx.current.condition} hour={localHour} temp={wx.current.temp} wind={wx.current.wind}/>
+                  <DailyNarrative current={wx.current} daily={wx.daily} hourly={wx.hourly}/>
+                  {lastUpdated&&<div style={{textAlign:"center",fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.3)",marginTop:2,letterSpacing:"0.05em"}}>{lastUpdated}</div>}
+                  {/* Nav tabs below hero on iPad */}
+                  <div style={{display:"flex",justifyContent:"center",padding:"16px 0 8px"}}>
+                    <div style={{display:"flex",background:"rgba(0,0,0,0.3)",backdropFilter:"blur(16px)",borderRadius:14,padding:3,border:"1px solid rgba(255,255,255,0.12)",gap:2}}>
+                      {NAV.map(function(navItem){return(
+                        <button key={navItem.id} onClick={()=>setTab(navItem.id)} style={{padding:"7px 16px",borderRadius:11,border:"none",background:tab===navItem.id?"rgba(255,255,255,0.18)":"transparent",color:tab===navItem.id?"#fff":"rgba(255,255,255,0.55)",fontFamily:"'DM Sans'",fontSize:12,fontWeight:tab===navItem.id?600:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                          <Icon name={navItem.icon} size={12}/>{navItem.label}
+                        </button>
+                      );})}
+                    </div>
+                  </div>
+                  {/* Forecast card compact on iPad left col */}
+                  {tab==="forecast"&&<div style={{marginTop:8}}><DailyForecast daily={wx.daily}/></div>}
+                  {tab==="radar"&&<div style={{marginTop:8}}><RadarMap lat={activeLoc.lat} lon={activeLoc.lon}/></div>}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT COLUMN — today's content */}
+            <div style={{flex:1,minWidth:0,paddingBottom:60,paddingTop:8}}>
+              <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
+              {tab==="today"&&wx&&!isLoading&&(
+                <div style={{animation:"fadeIn 0.4s ease"}}>
+                  <PlanningConfidenceCard hourly={wx.hourly}/>
+                  <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
+                  <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
+                  <CommuteCard hourly={wx.hourly} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs}/>
+                  <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
+                  <RawDetails wx={wx.current}/>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* CONTENT */}
-        <div style={{maxWidth:480,margin:"0 auto",padding:"0 16px 80px"}}>
-          <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
-
-          {tab==="today"&&wx&&!isLoading&&(
-            <div style={{animation:"fadeIn 0.4s ease"}}>
-              <PlanningConfidenceCard hourly={wx.hourly}/>
-              <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
-              <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
-              <CommuteCard hourly={wx.hourly} prefs={prefs}/>
-              <ClothingCard wx={wx.current} prefs={prefs}/>
-              <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
-              <RawDetails wx={wx.current}/>
+        ):(
+          /* ── PHONE LAYOUT ── */
+          <div>
+            {/* HERO */}
+            <div style={{maxWidth:480,margin:"0 auto"}}>
+              {isLoading&&<LoadingState/>}
+              {error&&!isLoading&&<ErrorState message={error} onRetry={()=>{setErrorLoc(p=>Object.assign({},p,{[activeLocId]:null}));loadWeather(activeLoc);}}/>}
+              {wx&&!isLoading&&(
+                <div>
+                  <WeatherHero wx={wx.current} loc={activeLoc} prefs={prefs}/>
+                  <AtmosphereTag cond={wx.current.condition} hour={localHour} temp={wx.current.temp} wind={wx.current.wind}/>
+                  <DailyNarrative current={wx.current} daily={wx.daily} hourly={wx.hourly}/>
+                  {lastUpdated&&<div style={{textAlign:"center",fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.3)",marginTop:2,letterSpacing:"0.05em"}}>{lastUpdated}</div>}
+                </div>
+              )}
             </div>
-          )}
-          {tab==="forecast"&&wx&&!isLoading&&<DailyForecast daily={wx.daily}/>}
-          {tab==="radar"&&activeLoc&&<div style={{animation:"fadeIn 0.4s ease"}}><RadarMap lat={activeLoc.lat} lon={activeLoc.lon}/></div>}
-        </div>
+
+            {/* NAV TABS */}
+            <div style={{display:"flex",justifyContent:"center",padding:"12px 20px",maxWidth:480,margin:"0 auto"}}>
+              <div style={{display:"flex",background:"rgba(0,0,0,0.3)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderRadius:14,padding:3,border:"1px solid rgba(255,255,255,0.12)",gap:2}}>
+                {NAV.map(({id,label,icon})=>(
+                  <button key={id} onClick={()=>setTab(id)} style={{padding:"7px 15px",borderRadius:11,border:"none",background:tab===id?"rgba(255,255,255,0.18)":"transparent",color:tab===id?"#fff":"rgba(255,255,255,0.55)",fontFamily:"'DM Sans'",fontSize:12,fontWeight:tab===id?600:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
+                    <Icon name={icon} size={12}/>{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* CONTENT */}
+            <div style={{maxWidth:480,margin:"0 auto",padding:"0 16px 80px"}}>
+              <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
+
+              {tab==="today"&&wx&&!isLoading&&(
+                <div style={{animation:"fadeIn 0.4s ease"}}>
+                  <PlanningConfidenceCard hourly={wx.hourly}/>
+                  <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
+                  <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
+                  <CommuteCard hourly={wx.hourly} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs}/>
+                  <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
+                  <RawDetails wx={wx.current}/>
+                </div>
+              )}
+              {tab==="forecast"&&wx&&!isLoading&&<DailyForecast daily={wx.daily}/>}
+              {tab==="radar"&&activeLoc&&<div style={{animation:"fadeIn 0.4s ease"}}><RadarMap lat={activeLoc.lat} lon={activeLoc.lon}/></div>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* GROUPS DRAWER */}
