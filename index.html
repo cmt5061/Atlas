@@ -494,66 +494,51 @@ function computeComfort(temp,humidity,wind,precipChance,uvIndex,sensitivity){
   return{score:adj,category:adj>=80?"excellent":adj>=60?"good":adj>=40?"fair":"poor"};
 }
 
-// ── CLOTHING ENGINE (no external API) ───────────────────────────
+// ── CLOTHING ENGINE (no external API) ────────────────────────────────
 function getClothingAdvice(wx, prefs) {
   if (!wx) return null;
-  const profile = prefs.tempProfile || "normal"; // "cold" | "normal" | "warm"
-  const feelsLike = wx.feelsLike;
-  const wind = wx.wind;
-  const precip = wx.precipChance;
-  const uv = wx.uvIndex;
-  const cond = wx.condition;
-
-  // Offset: "cold" people feel colder → need gear at higher temps
-  const offset = profile === "cold" ? 8 : profile === "warm" ? -8 : 0;
-  const eff = feelsLike - offset;
-  // Extra wind chill factor
-  const windChill = wind >= 20 ? 5 : wind >= 12 ? 2 : 0;
-  const adjusted = eff - windChill;
-
-  const items = {};
-
-  // BEANIE
-  if (adjusted <= 40) items.beanie = "wear";
-  else if (adjusted <= 52) items.beanie = "bring";
-  else items.beanie = "leave";
-
-  // JACKET
-  if (adjusted <= 38) items.jacket = { status:"wear", type:"heavy coat" };
-  else if (adjusted <= 50) items.jacket = { status:"wear", type:"jacket" };
-  else if (adjusted <= 62) items.jacket = { status:"bring", type:"light jacket" };
-  else items.jacket = { status:"leave", type:"jacket" };
-
-  // GLOVES
-  if (adjusted <= 32) items.gloves = "wear";
-  else if (adjusted <= 45) items.bring ? null : null;
-  items.gloves = adjusted <= 32 ? "wear" : adjusted <= 45 ? "bring" : "leave";
-
-  // UMBRELLA
-  items.umbrella = precip >= 65 ? "bring" : precip >= 35 ? "consider" : "leave";
-
-  // SUNSCREEN
-  items.sunscreen = uv >= 6 ? "apply" : uv >= 3 ? "bring" : "leave";
-
-  // Build display groups
-  const wear = [], bring = [], leave = [];
-  const addItem = (key, label, emoji, s) => {
-    const target = s === "wear" || s === "apply" ? wear : s === "bring" || s === "consider" ? bring : leave;
-    target.push({ key, label, emoji });
-  };
-
-  addItem("beanie", "Beanie", "🧢", items.beanie);
-  addItem("jacket", items.jacket.type.charAt(0).toUpperCase()+items.jacket.type.slice(1), "🧥", items.jacket.status);
-  addItem("gloves", "Gloves", "🧤", items.gloves);
-  addItem("umbrella", "Umbrella", "☂️", items.umbrella);
-  addItem("sunscreen", "Sunscreen", "🧴", items.sunscreen);
-
-  // One-line summary
-  const wears = wear.map(i=>i.emoji+" "+i.label).join(", ");
-  const brings = bring.map(i=>i.emoji+" "+i.label).join(", ");
-  const leaves = leave.map(i=>i.emoji+" "+i.label).join(", ");
-
-  return { wear, bring, leave, wears, brings, leaves };
+  var profile = prefs.tempProfile || "normal";
+  var offset = profile === "cold" ? 8 : profile === "warm" ? -8 : 0;
+  var windChill = wx.wind >= 20 ? 5 : wx.wind >= 12 ? 2 : 0;
+  var adj = wx.feelsLike - offset - windChill;
+  var precip = wx.precipChance;
+  var uv = wx.uvIndex;
+  var wear = [], bring = [], leave = [];
+  function add(key, label, emoji, status) {
+    var bucket = (status === "wear" || status === "apply") ? wear
+               : (status === "bring" || status === "consider") ? bring
+               : leave;
+    bucket.push({ key:key, label:label, emoji:emoji, status:status });
+  }
+  // Shirt sleeve
+  if (adj >= 72) add("shirt", "Short sleeve", "👕", "wear");
+  else add("shirt", "Long sleeve", "👔", "wear");
+  // Bottoms
+  if (adj >= 70) add("bottom", "Shorts", "🩳", "wear");
+  else add("bottom", "Pants", "👖", "wear");
+  // Jacket
+  if (adj <= 28) add("jacket", "Heavy coat", "🧥", "wear");
+  else if (adj <= 42) add("jacket", "Heavy jacket", "🧥", "wear");
+  else if (adj <= 55) add("jacket", "Light jacket", "🧥", "wear");
+  else if (adj <= 65) add("jacket", "Light jacket", "🧥", "bring");
+  else add("jacket", "Jacket", "🧥", "leave");
+  // Beanie
+  if (adj <= 38) add("beanie", "Beanie", "🧢", "wear");
+  else if (adj <= 50) add("beanie", "Beanie", "🧢", "bring");
+  else add("beanie", "Beanie", "🧢", "leave");
+  // Gloves
+  if (adj <= 30) add("gloves", "Gloves", "🧤", "wear");
+  else if (adj <= 44) add("gloves", "Gloves", "🧤", "bring");
+  else add("gloves", "Gloves", "🧤", "leave");
+  // Umbrella
+  if (precip >= 65) add("umbrella", "Umbrella", "☂️", "bring");
+  else if (precip >= 35) add("umbrella", "Umbrella", "☂️", "consider");
+  else add("umbrella", "Umbrella", "☂️", "leave");
+  // Sunscreen
+  if (uv >= 6) add("sunscreen", "Sunscreen", "🧴", "apply");
+  else if (uv >= 3) add("sunscreen", "Sunscreen", "🧴", "bring");
+  else add("sunscreen", "Sunscreen", "🧴", "leave");
+  return { wear:wear, bring:bring, leave:leave };
 }
 
 // ── ATMOSPHERE ENGINE ────────────────────────────────────────────
@@ -908,35 +893,25 @@ function CommuteCard({hourly,prefs}){
 
 // ── CLOTHING CARD ─────────────────────────────────────────────────
 function ClothingCard({wx,prefs}){
-  const advice=useMemo(()=>getClothingAdvice(wx,prefs),[wx&&wx.temp,wx&&wx.feelsLike,wx&&wx.wind,wx&&wx.precipChance,wx&&wx.uvIndex,wx&&wx.condition,prefs.tempProfile]);
+  var advice=useMemo(function(){return getClothingAdvice(wx,prefs);},[wx&&wx.temp,wx&&wx.feelsLike,wx&&wx.wind,wx&&wx.precipChance,wx&&wx.uvIndex,wx&&wx.condition,prefs.tempProfile]);
   if(!advice)return null;
-
-  const StatusBadge=({status})=>{
-    const color=status==="wear"||status==="apply"?"#4ade80":status==="bring"||status==="consider"?"#fbbf24":"rgba(255,255,255,0.25)";
-    const label=status==="wear"?"Wear":status==="apply"?"Apply":status==="bring"?"Bring":status==="consider"?"Maybe":"Leave";
-    return <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</span>;
-  };
-
-  const allItems=[
-    ...advice.wear.map(i=>({...i,status:"wear"})),
-    ...advice.bring.map(i=>({...i,status:"bring"})),
-    ...advice.leave.map(i=>({...i,status:"leave"})),
-  ];
-
+  var allItems=advice.wear.concat(advice.bring).concat(advice.leave);
+  function statusColor(s){return s==="wear"||s==="apply"?"#4ade80":s==="bring"||s==="consider"?"#fbbf24":"rgba(255,255,255,0.25)";}
+  function statusLabel(s){return s==="wear"?"Wear":s==="apply"?"Apply":s==="bring"?"Bring":s==="consider"?"Maybe":"Leave";}
   return(
     <div style={{marginBottom:16}}>
       <SectionLabel>What to wear</SectionLabel>
       <Card style={{padding:"14px 16px"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {allItems.map(item=>(
-            <div key={item.key} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.06)",borderRadius:12,opacity:item.status==="leave"?0.45:1}}>
+          {allItems.map(function(item){return(
+            <div key={item.key} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.06)",borderRadius:12,opacity:item.status==="leave"?0.4:1}}>
               <span style={{fontSize:20,flexShrink:0}}>{item.emoji}</span>
               <div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.75)",fontWeight:500}}>{item.label}</div>
-                <StatusBadge status={item.status}/>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.8)",fontWeight:500}}>{item.label}</div>
+                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor(item.status),letterSpacing:"0.06em",textTransform:"uppercase"}}>{statusLabel(item.status)}</span>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       </Card>
     </div>
