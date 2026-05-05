@@ -903,28 +903,189 @@ function CommuteCard({hourly,prefs}){
 }
 
 // ── CLOTHING CARD ─────────────────────────────────────────────────
-function ClothingCard({wx,prefs}){
-  var advice=useMemo(function(){return getClothingAdvice(wx,prefs);},[wx&&wx.temp,wx&&wx.feelsLike,wx&&wx.wind,wx&&wx.precipChance,wx&&wx.uvIndex,wx&&wx.condition,prefs.tempProfile]);
-  if(!advice)return null;
-  var allItems=advice.wear.concat(advice.bring).concat(advice.leave);
-  function statusColor(s){return s==="wear"||s==="apply"?"#4ade80":s==="bring"||s==="consider"?"#fbbf24":"rgba(255,255,255,0.25)";}
-  function statusLabel(s){return s==="wear"?"Wear":s==="apply"?"Apply":s==="bring"?"Bring":s==="consider"?"Maybe":"Leave";}
-  return(
+function getOutfitSummary(advice, wx) {
+  if (!advice || !wx) return { title:"", subtitle:"", reasoning:"" };
+  var adj = wx.feelsLike;
+  var wind = wx.wind;
+  var base = advice.wear.filter(function(i){ return i.key==="shirt"||i.key==="bottom"; });
+  var jacket = advice.wear.find(function(i){ return i.key==="jacket"; }) || advice.bring.find(function(i){ return i.key==="jacket"; });
+  var title = "";
+  if (adj >= 72) title = "Light & Comfortable";
+  else if (adj >= 60) title = "Comfortable & Layered";
+  else if (adj >= 45) title = "Cool — Layer Up";
+  else if (adj >= 30) title = "Cold — Dress Warm";
+  else title = "Very Cold — Bundle Up";
+  var isWindy = wind >= 15;
+  var notes = [];
+  if (jacket && jacket.status === "wear") notes.push("A " + jacket.label.toLowerCase() + " is needed");
+  else if (jacket && jacket.status === "bring") notes.push("Pack a " + jacket.label.toLowerCase() + " for cooler moments");
+  if (isWindy) notes.push("Wind makes it feel cooler than the temperature suggests");
+  if (wx.precipChance >= 50) notes.push("Rain is likely — bring an umbrella");
+  else if (wx.precipChance >= 30) notes.push("Some rain possible, umbrella worth having");
+  var reasoning = notes.length ? notes[0].charAt(0).toUpperCase()+notes[0].slice(1)+"." : "Dress for the conditions and you'll be comfortable all day.";
+  return { title:title, reasoning:reasoning };
+}
+
+function ClothingCard({wx, prefs}) {
+  var advice = useMemo(function(){ return getClothingAdvice(wx,prefs); },
+    [wx&&wx.temp, wx&&wx.feelsLike, wx&&wx.wind, wx&&wx.precipChance, wx&&wx.uvIndex, wx&&wx.condition, prefs.tempProfile]);
+  const [expanded, setExpanded] = useState(false);
+  if (!advice || !wx) return null;
+
+  var summary = getOutfitSummary(advice, wx);
+  var base = advice.wear.filter(function(i){ return i.key==="shirt"||i.key==="bottom"; });
+  var jacketWear = advice.wear.find(function(i){ return i.key==="jacket"; });
+  var jacketBring = advice.bring.find(function(i){ return i.key==="jacket"; });
+  var optionalItems = advice.bring.filter(function(i){ return i.key!=="jacket"; });
+  if (jacketBring) optionalItems = [jacketBring].concat(optionalItems);
+  var notNeeded = advice.leave;
+
+  var comfortColor = function(score) {
+    return score >= 80 ? "#4ade80" : score >= 60 ? "#a3e635" : score >= 40 ? "#fbbf24" : "#f87171";
+  };
+  var comfort = computeComfort(wx.temp, wx.humidity, wx.wind, wx.precipChance, wx.uvIndex, prefs.temperatureSensitivity);
+  var cColor = comfortColor(comfort.score);
+
+  return (
     <div style={{marginBottom:16}}>
       <SectionLabel>What to wear</SectionLabel>
-      <Card style={{padding:"14px 16px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {allItems.map(function(item){return(
-            <div key={item.key} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"rgba(255,255,255,0.06)",borderRadius:12,opacity:item.status==="leave"?0.4:1}}>
-              <span style={{fontSize:20,flexShrink:0}}>{item.emoji}</span>
+
+      {/* ── SUMMARY CARD ── */}
+      <Card style={{padding:"16px 16px 14px",marginBottom:10}}>
+        {/* Title row */}
+        <div style={{display:"flex",alignItems:"flex-start",gap:14,marginBottom:12}}>
+          <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:22}}>
+            {base.length ? base[0].emoji : "👕"}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'Fraunces',serif",fontSize:18,fontWeight:300,color:"#f1f5f9",lineHeight:1.2,marginBottom:3}}>{summary.title}</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>{summary.reasoning}</div>
+          </div>
+        </div>
+
+        {/* Quick chips — wear items */}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:jacketWear||jacketBring?10:0}}>
+          {base.map(function(item){
+            return (
+              <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(255,255,255,0.08)",borderRadius:20,border:"1px solid rgba(255,255,255,0.12)"}}>
+                <span style={{fontSize:15}}>{item.emoji}</span>
+                <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.8)",fontWeight:500}}>{item.label}</span>
+              </div>
+            );
+          })}
+          {jacketWear && (
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(255,255,255,0.06)",borderRadius:20,border:"1px solid rgba(255,255,255,0.1)"}}>
+              <span style={{fontSize:15}}>{jacketWear.emoji}</span>
               <div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.8)",fontWeight:500}}>{item.label}</div>
-                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor(item.status),letterSpacing:"0.06em",textTransform:"uppercase"}}>{statusLabel(item.status)}</span>
+                <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{jacketWear.label}</span>
               </div>
             </div>
-          );})}
+          )}
+          {jacketBring && !jacketWear && (
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(251,191,36,0.08)",borderRadius:20,border:"1px solid rgba(251,191,36,0.2)"}}>
+              <span style={{fontSize:15}}>{jacketBring.emoji}</span>
+              <div>
+                <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(251,191,36,0.8)",fontWeight:500}}>{jacketBring.label}</span>
+                <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(251,191,36,0.55)",marginLeft:4}}>(optional)</span>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Expand toggle */}
+        <button onClick={function(){setExpanded(function(p){return !p;});}} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.35)",fontFamily:"'DM Sans'",fontSize:11,padding:"4px 0 0",letterSpacing:"0.04em"}}>
+          {expanded ? "Hide details" : "View details"}
+          <Icon name={expanded?"ChevronUp":"ChevronDown"} size={11}/>
+        </button>
       </Card>
+
+      {/* ── EXPANDED DETAIL ── */}
+      {expanded && (
+        <div style={{animation:"fadeIn 0.25s ease"}}>
+
+          {/* Base layer */}
+          {base.length > 0 && (
+            <div style={{marginBottom:8}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Base Layer</div>
+              {base.map(function(item){
+                var desc = item.key==="shirt"
+                  ? (wx.feelsLike>=72?"Warm daytime temperatures.":"Cooler conditions — long sleeves keep you comfortable.")
+                  : (wx.feelsLike>=70?"Warm enough for shorts.":"Pants will keep your legs comfortable.");
+                return (
+                  <Card key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8}}>
+                    <span style={{fontSize:22,flexShrink:0}}>{item.emoji}</span>
+                    <div>
+                      <div style={{fontFamily:"'DM Sans'",fontWeight:600,fontSize:14,color:"#f1f5f9"}}>{item.label}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",marginTop:2}}>{desc}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Optional layer */}
+          {optionalItems.length > 0 && (
+            <div style={{marginBottom:8}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Optional Layer</div>
+              {optionalItems.map(function(item){
+                var desc = item.key==="jacket"
+                  ? (wx.wind>=15?"Wind makes a light layer worth having.":"Cooler start to the morning.")
+                  : item.key==="umbrella"
+                  ? (wx.precipChance>=50?"Rain is likely.":"Light chance of rain.")
+                  : "Depends on how long you're outside.";
+                return (
+                  <Card key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8,background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.15)"}}>
+                    <span style={{fontSize:22,flexShrink:0}}>{item.emoji}</span>
+                    <div>
+                      <div style={{fontFamily:"'DM Sans'",fontWeight:600,fontSize:14,color:"#f1f5f9"}}>{item.label}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",marginTop:2}}>{desc}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Not needed */}
+          {notNeeded.length > 0 && (
+            <div style={{marginBottom:10}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Not Needed</div>
+              <Card style={{padding:"6px 0"}}>
+                {notNeeded.map(function(item, idx){
+                  var reason = item.key==="umbrella"?"No rain expected"
+                    : item.key==="sunscreen"?"UV index is low"
+                    : item.key==="gloves"?"Temperatures are comfortable"
+                    : item.key==="beanie"?"No need for extra warmth today"
+                    : "Not necessary today";
+                  return (
+                    <div key={item.key} style={{display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:idx<notNeeded.length-1?"1px solid rgba(255,255,255,0.05)":"none"}}>
+                      <span style={{fontSize:18,marginRight:12,opacity:0.5}}>{item.emoji}</span>
+                      <div style={{flex:1}}>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:13,color:"rgba(255,255,255,0.45)",fontWeight:500}}>{item.label}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.25)",marginLeft:8}}>{reason}</span>
+                      </div>
+                      <div style={{width:18,height:18,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Icon name="X" size={10} style={{color:"rgba(255,255,255,0.25)"}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </Card>
+            </div>
+          )}
+
+          {/* Why box */}
+          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:"10px 14px",border:"1px solid rgba(255,255,255,0.07)"}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>
+              <span style={{color:"rgba(255,255,255,0.3)",fontWeight:600,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",marginRight:8}}>Why</span>
+              {wx.description} conditions with {wx.feelsLike >= 65 ? "warm" : wx.feelsLike >= 50 ? "mild" : "cool"} feels-like temperature
+              {wx.wind >= 15 ? ", gusty winds" : ""}
+              {wx.precipChance >= 30 ? " and a chance of rain" : ""}.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1207,7 +1368,7 @@ function App(){
           const {name,region}=await reverseGeocode(lat,lon);
           const myLoc={id:"my_location",name,region,lat:parseFloat(lat.toFixed(4)),lon:parseFloat(lon.toFixed(4)),isCurrentLocation:true};
           setLocations(prev=>[myLoc,...prev.filter(l=>!l.isCurrentLocation)]);
-          if(!store.get("locId"))setActiveLocId("my_location");
+          setActiveLocId("my_location");
           setLocLoading(false);loadWeather(myLoc);
         },
         ()=>setLocLoading(false),{timeout:8000}
@@ -1299,10 +1460,10 @@ function App(){
 
         {isIPad?(
           /* ── iPAD 2-COLUMN LAYOUT ── */
-          <div style={{maxWidth:960,margin:"0 auto",padding:"0 18px",display:"flex",gap:20,alignItems:"flex-start"}}>
+          <div style={{maxWidth:980,margin:"0 auto",padding:"0 20px",display:"flex",gap:22,alignItems:"flex-start"}}>
 
-            {/* LEFT COLUMN — hero + narrative */}
-            <div style={{flex:"0 0 400px",position:"sticky",top:0}}>
+            {/* LEFT COLUMN — hero, narrative, confidence, rhythm */}
+            <div style={{flex:"0 0 420px",minWidth:0}}>
               {isLoading&&<LoadingState/>}
               {error&&!isLoading&&<ErrorState message={error} onRetry={()=>{setErrorLoc(p=>Object.assign({},p,{[activeLocId]:null}));loadWeather(activeLoc);}}/>}
               {wx&&!isLoading&&(
@@ -1311,8 +1472,8 @@ function App(){
                   <AtmosphereTag cond={wx.current.condition} hour={localHour} temp={wx.current.temp} wind={wx.current.wind}/>
                   <DailyNarrative current={wx.current} daily={wx.daily} hourly={wx.hourly}/>
                   {lastUpdated&&<div style={{textAlign:"center",fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.3)",marginTop:2,letterSpacing:"0.05em"}}>{lastUpdated}</div>}
-                  {/* Nav tabs below hero on iPad */}
-                  <div style={{display:"flex",justifyContent:"center",padding:"16px 0 8px"}}>
+                  {/* Nav tabs */}
+                  <div style={{display:"flex",justifyContent:"center",padding:"14px 0 12px"}}>
                     <div style={{display:"flex",background:"rgba(0,0,0,0.3)",backdropFilter:"blur(16px)",borderRadius:14,padding:3,border:"1px solid rgba(255,255,255,0.12)",gap:2}}>
                       {NAV.map(function(navItem){return(
                         <button key={navItem.id} onClick={()=>setTab(navItem.id)} style={{padding:"7px 16px",borderRadius:11,border:"none",background:tab===navItem.id?"rgba(255,255,255,0.18)":"transparent",color:tab===navItem.id?"#fff":"rgba(255,255,255,0.55)",fontFamily:"'DM Sans'",fontSize:12,fontWeight:tab===navItem.id?600:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
@@ -1321,25 +1482,40 @@ function App(){
                       );})}
                     </div>
                   </div>
-                  {/* Forecast card compact on iPad left col */}
-                  {tab==="forecast"&&<div style={{marginTop:8}}><DailyForecast daily={wx.daily}/></div>}
-                  {tab==="radar"&&<div style={{marginTop:8}}><RadarMap lat={activeLoc.lat} lon={activeLoc.lon}/></div>}
+                  {/* Today left-col: planning confidence + rhythm only */}
+                  {tab==="today"&&wx&&(
+                    <div style={{animation:"fadeIn 0.4s ease"}}>
+                      <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
+                      <PlanningConfidenceCard hourly={wx.hourly}/>
+                      <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
+                      <RawDetails wx={wx.current}/>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* RIGHT COLUMN — today's content */}
+            {/* RIGHT COLUMN */}
             <div style={{flex:1,minWidth:0,paddingBottom:60,paddingTop:8}}>
-              <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
+              {/* Today: clothing first, then timing/commute/insights */}
               {tab==="today"&&wx&&!isLoading&&(
                 <div style={{animation:"fadeIn 0.4s ease"}}>
-                  <PlanningConfidenceCard hourly={wx.hourly}/>
-                  <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
                   <CommuteCard hourly={wx.hourly} prefs={prefs}/>
-                  <ClothingCard wx={wx.current} prefs={prefs}/>
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
-                  <RawDetails wx={wx.current}/>
+                </div>
+              )}
+              {/* Forecast on right */}
+              {tab==="forecast"&&wx&&!isLoading&&(
+                <div style={{animation:"fadeIn 0.4s ease"}}>
+                  <DailyForecast daily={wx.daily}/>
+                </div>
+              )}
+              {/* Radar on right */}
+              {tab==="radar"&&activeLoc&&(
+                <div style={{animation:"fadeIn 0.4s ease"}}>
+                  <RadarMap lat={activeLoc.lat} lon={activeLoc.lon}/>
                 </div>
               )}
             </div>
@@ -1380,9 +1556,9 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <PlanningConfidenceCard hourly={wx.hourly}/>
                   <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
                   <CommuteCard hourly={wx.hourly} prefs={prefs}/>
-                  <ClothingCard wx={wx.current} prefs={prefs}/>
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
                   <RawDetails wx={wx.current}/>
                 </div>
