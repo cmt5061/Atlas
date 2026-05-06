@@ -795,20 +795,29 @@ function EnvironmentalTimeline({hourly,prefs}){
     return"rgba(248,113,113,0.12)";
   }
   function sp(h){if(h.hour===6)return"🌅";if(h.hour===20)return"🌇";return null;}
+  function condDot(h){
+    var special=sp(h);
+    if(special) return {type:"emoji",value:special};
+    if(h.precipChance>=50) return {type:"dot",color:"#93c5fd"};
+    if(h.precipChance>=30) return {type:"dot",color:"#bfdbfe"};
+    if(h.condition==="clear") return {type:"dot",color:"#fde047"};
+    if(h.condition==="partly") return {type:"dot",color:"#fcd34d"};
+    if(h.condition==="cloudy") return {type:"dot",color:"rgba(148,163,184,0.7)"};
+    return {type:"none"};
+  }
   return(
     <div style={{marginBottom:16}}>
       <SectionLabel>Today's Rhythm</SectionLabel>
       <div style={{overflowX:"auto"}}>
         <div style={{display:"flex",gap:0,width:"max-content",padding:"0 4px"}}>
           {hourly.slice(0,18).map((h,i)=>{
-            const isCur=i===0,special=sp(h);
+            const isCur=i===0,dot=condDot(h);
             const comfort=computeComfort(h.temp,h.humidity,h.wind,h.precipChance,h.uvIndex||0,sens);
             const isGood=comfort.category==="excellent"||comfort.category==="good";
-            const showRain=h.precipChance>=30;
             return(
               <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,minWidth:50,padding:"10px 4px 8px",background:isCur?"rgba(255,255,255,0.15)":hBg(h),borderRadius:isCur?12:0}}>
                 <div style={{height:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  {special?<span style={{fontSize:11}}>{special}</span>:showRain?<div style={{width:5,height:5,borderRadius:"50%",background:"#93c5fd"}}/>:<div style={{width:5,height:5}}/>}
+                  {dot.type==="emoji"?<span style={{fontSize:11}}>{dot.value}</span>:dot.type==="dot"?<div style={{width:6,height:6,borderRadius:"50%",background:dot.color,boxShadow:dot.color==="#fde047"||dot.color==="#fcd34d"?"0 0 4px "+dot.color:undefined}}/>:<div style={{width:6,height:6}}/>}
                 </div>
                 <div style={{fontFamily:"'Fraunces',serif",fontSize:16,fontWeight:300,color:isCur?"#fff":isGood?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.55)",lineHeight:1}}>{h.temp}°</div>
                 <div style={{width:18,height:2,background:"rgba(255,255,255,0.12)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:comfort.score+"%",background:isGood?"#4ade80":"#fbbf24",borderRadius:2}}/></div>
@@ -1126,21 +1135,21 @@ function ClothingCard({wx, prefs, daily, hourly}) {
           )}
         </div>
 
-        {/* Day arc banner — only when spread is significant */}
+        {/* Day arc banner */}
         {summary.timeAdvice && (
           <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"10px 12px",marginBottom:10,border:"1px solid rgba(255,255,255,0.08)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
-              <span style={{fontSize:14}}>&#x1F321;&#xFE0F;</span>
-              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.5)",letterSpacing:"0.08em",textTransform:"uppercase"}}>Today's range: {summary.valleyTemp}° \u2192 {summary.peakTemp}°</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+              <span style={{fontFamily:"'Fraunces',serif",fontSize:14,color:"rgba(255,255,255,0.65)"}}>{summary.valleyTemp}&deg; &rarr; {summary.peakTemp}&deg;</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.1em",textTransform:"uppercase"}}>today's range</span>
             </div>
-            <div style={{display:"flex",gap:0,marginBottom:6}}>
+            <div style={{display:"flex",gap:0}}>
               <div style={{flex:1,borderRight:"1px solid rgba(255,255,255,0.06)",paddingRight:10}}>
-                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2}}>Morning</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)"}}>{summary.timeAdvice.morning}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2,letterSpacing:"0.06em",textTransform:"uppercase"}}>Morning</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)",lineHeight:1.4}}>{summary.timeAdvice.morning}</div>
               </div>
               <div style={{flex:1,paddingLeft:10}}>
-                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2}}>Afternoon</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)"}}>{summary.timeAdvice.afternoon}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2,letterSpacing:"0.06em",textTransform:"uppercase"}}>Afternoon</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)",lineHeight:1.4}}>{summary.timeAdvice.afternoon}</div>
               </div>
             </div>
           </div>
