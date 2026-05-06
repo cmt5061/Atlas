@@ -903,48 +903,187 @@ function CommuteCard({hourly,prefs}){
 }
 
 // ── CLOTHING CARD ─────────────────────────────────────────────────
-function getOutfitSummary(advice, wx) {
-  if (!advice || !wx) return { title:"", subtitle:"", reasoning:"" };
+function getOutfitSummary(advice, wx, daily, hourly) {
+  if (!advice || !wx) return { title:"", subtitle:"", reasoning:"", timeAdvice:null };
   var adj = wx.feelsLike;
-  var wind = wx.wind;
-  var base = advice.wear.filter(function(i){ return i.key==="shirt"||i.key==="bottom"; });
-  var jacket = advice.wear.find(function(i){ return i.key==="jacket"; }) || advice.bring.find(function(i){ return i.key==="jacket"; });
+  var high = daily && daily[0] ? daily[0].high : wx.high;
+  var low  = daily && daily[0] ? daily[0].low  : wx.low;
+  var spread = high - low;
+
+  // Find the warmest and coolest hours today from hourly
+  var peakTemp = high, valleyTemp = low;
+  var peakHour = null, valleyHour = null;
+  if (hourly && hourly.length) {
+    var maxT = -999, minT = 999;
+    hourly.forEach(function(h){
+      if (h.temp > maxT) { maxT = h.temp; peakHour = h.hourLabel; }
+      if (h.temp < minT) { minT = h.temp; valleyHour = h.hourLabel; }
+    });
+    peakTemp = maxT; valleyTemp = minT;
+  }
+
   var title = "";
   if (adj >= 72) title = "Light & Comfortable";
   else if (adj >= 60) title = "Comfortable & Layered";
   else if (adj >= 45) title = "Cool — Layer Up";
   else if (adj >= 30) title = "Cold — Dress Warm";
   else title = "Very Cold — Bundle Up";
-  var isWindy = wind >= 15;
-  var notes = [];
-  if (jacket && jacket.status === "wear") notes.push("A " + jacket.label.toLowerCase() + " is needed");
-  else if (jacket && jacket.status === "bring") notes.push("Pack a " + jacket.label.toLowerCase() + " for cooler moments");
-  if (isWindy) notes.push("Wind makes it feel cooler than the temperature suggests");
-  if (wx.precipChance >= 50) notes.push("Rain is likely — bring an umbrella");
-  else if (wx.precipChance >= 30) notes.push("Some rain possible, umbrella worth having");
-  var reasoning = notes.length ? notes[0].charAt(0).toUpperCase()+notes[0].slice(1)+"." : "Dress for the conditions and you'll be comfortable all day.";
-  return { title:title, reasoning:reasoning };
+
+  // Time-based advice: big spread = plan for change
+  var timeAdvice = null;
+  if (spread >= 22) {
+    // cold morning, hot afternoon
+    if (low < 52 && high >= 70) {
+      timeAdvice = {
+        morning: "Layer up — " + low + "° at the low",
+        afternoon: "Warm up to " + high + "° — layers off",
+        tip: "Start with a jacket you can easily remove. " + (high >= 80 ? "It may get quite hot by midday." : "")
+      };
+    } else if (low < 60 && high >= 75) {
+      timeAdvice = {
+        morning: "Cool start — " + low + "° low",
+        afternoon: high + "° high — light layers ideal",
+        tip: "A light jacket in the morning pays off once temperatures climb."
+      };
+    }
+  } else if (spread >= 15) {
+    if (low < 58) {
+      timeAdvice = {
+        morning: "Cooler morning — " + low + "° low",
+        afternoon: high + "° peak",
+        tip: "Bring an extra layer for the morning, then shed it as the day warms."
+      };
+    }
+  }
+
+  // Rain timing
+  var rainWindow = null;
+  if (hourly) {
+    var rainHours = hourly.filter(function(h){ return h.precipChance >= 50; });
+    if (rainHours.length) {
+      var firstRain = rainHours[0].hourLabel;
+      var lastRain  = rainHours[rainHours.length-1].hourLabel;
+      rainWindow = firstRain === lastRain ? "around " + firstRain : firstRain + "\u2013" + lastRain;
+    }
+  }
+
+  var parts = [];
+  if (timeAdvice) parts.push(timeAdvice.tip);
+  else {
+    var jacket = advice.wear.find(function(i){ return i.key==="jacket"; }) || advice.bring.find(function(i){ return i.key==="jacket"; });
+    if (jacket && jacket.status === "wear") parts.push("A " + jacket.label.toLowerCase() + " is needed today.");
+    else if (jacket && jacket.status === "bring") parts.push("Pack a " + jacket.label.toLowerCase() + " in case it cools down.");
+  }
+  if (rainWindow) parts.push("Umbrella recommended \u2014 rain expected " + rainWindow + ".");
+  if (wx.wind >= 18) parts.push("Wind at " + wx.wind + " mph makes it feel cooler.");
+  var reasoning = parts.length ? parts[0] : "Dress for the conditions and you'll be comfortable all day.";
+  if (parts.length > 1) reasoning += " " + parts[1];
+
+  return { title:title, reasoning:reasoning, timeAdvice:timeAdvice, rainWindow:rainWindow, peakHour:peakHour, peakTemp:peakTemp, valleyHour:valleyHour, valleyTemp:valleyTemp, spread:spread };
 }
 
-function ClothingCard({wx, prefs}) {
+// Derive am/pm specific advice from the full day arc
+function getDayArcAdvice(advice, wx, hourly, prefs) {
+  if (!hourly || hourly.length < 4) return null;
+  var sens = prefs.temperatureSensitivity || "medium";
+  var offset = (prefs.tempProfile === "cold") ? 8 : (prefs.tempProfile === "warm") ? -8 : 0;
+  var morning = hourly.filter(function(h){ return h.hour >= 6 && h.hour <= 10; });
+  var afternoon = hourly.filter(function(h){ return h.hour >= 12 && h.hour <= 16; });
+  var evening = hourly.filter(function(h){ return h.hour >= 17 && h.hour <= 21; });
+
+  function avgTemp(arr) {
+    if (!arr.length) return null;
+    return Math.round(arr.reduce(function(a,h){ return a+h.temp; }, 0) / arr.length);
+  }
+  function maxPrecip(arr) {
+    return arr.reduce(function(a,h){ return Math.max(a, h.precipChance); }, 0);
+  }
+
+  var mT = avgTemp(morning), aT = avgTemp(afternoon), eT = avgTemp(evening);
+  var mR = maxPrecip(morning), aR = maxPrecip(afternoon), eR = maxPrecip(evening);
+
+  var slots = [];
+  if (mT !== null) {
+    var adjM = mT - offset;
+    slots.push({
+      label: "Morning",
+      temp: mT,
+      adjTemp: adjM,
+      rain: mR,
+      items: buildSlotItems(adjM, mR, wx.uvIndex || 0),
+      note: buildSlotNote(adjM, mR, "morning")
+    });
+  }
+  if (aT !== null) {
+    var adjA = aT - offset;
+    slots.push({
+      label: "Afternoon",
+      temp: aT,
+      adjTemp: adjA,
+      rain: aR,
+      items: buildSlotItems(adjA, aR, wx.uvIndex || 0),
+      note: buildSlotNote(adjA, aR, "afternoon")
+    });
+  }
+  if (eT !== null) {
+    var adjE = eT - offset;
+    slots.push({
+      label: "Evening",
+      temp: eT,
+      adjTemp: adjE,
+      rain: eR,
+      items: buildSlotItems(adjE, eR, wx.uvIndex || 0),
+      note: buildSlotNote(adjE, eR, "evening")
+    });
+  }
+
+  // Only return arc if there's meaningful temperature change
+  if (slots.length < 2) return null;
+  var temps = slots.map(function(s){ return s.temp; });
+  var tRange = Math.max.apply(null, temps) - Math.min.apply(null, temps);
+  if (tRange < 10) return null; // Not worth showing if day is flat
+  return slots;
+}
+
+function buildSlotItems(adjTemp, precipChance, uvIndex) {
+  var items = [];
+  if (adjTemp >= 72) items.push({ emoji: "\U0001F455", label: "Short sleeve" });
+  else items.push({ emoji: "\U0001F454", label: "Long sleeve" });
+  if (adjTemp >= 70) items.push({ emoji: "\U0001FA73", label: "Shorts" });
+  else items.push({ emoji: "\U0001F456", label: "Pants" });
+  if (adjTemp <= 42) items.push({ emoji: "\U0001F9E5", label: "Heavy jacket" });
+  else if (adjTemp <= 55) items.push({ emoji: "\U0001F9E5", label: "Light jacket" });
+  else if (adjTemp <= 65) items.push({ emoji: "\U0001F9E5", label: "Jacket (opt.)" });
+  if (precipChance >= 50) items.push({ emoji: "\u2602\uFE0F", label: "Umbrella" });
+  if (uvIndex >= 6 && adjTemp >= 65) items.push({ emoji: "\U0001F9F4", label: "Sunscreen" });
+  return items;
+}
+
+function buildSlotNote(adjTemp, precipChance, period) {
+  if (adjTemp <= 35) return "Very cold" + (period==="morning" ? " start" : "");
+  if (adjTemp <= 50) return "Cold" + (period==="morning" ? " — layer up" : "");
+  if (adjTemp <= 60) return "Cool and comfortable";
+  if (adjTemp <= 72) return "Comfortable";
+  if (adjTemp <= 82) return "Warm" + (period==="afternoon" ? " — peak heat" : "");
+  return "Hot" + (period==="afternoon" ? " — stay hydrated" : "");
+}
+
+function ClothingCard({wx, prefs, daily, hourly}) {
   var advice = useMemo(function(){ return getClothingAdvice(wx,prefs); },
     [wx&&wx.temp, wx&&wx.feelsLike, wx&&wx.wind, wx&&wx.precipChance, wx&&wx.uvIndex, wx&&wx.condition, prefs.tempProfile]);
   const [expanded, setExpanded] = useState(false);
   if (!advice || !wx) return null;
 
-  var summary = getOutfitSummary(advice, wx);
-  var base = advice.wear.filter(function(i){ return i.key==="shirt"||i.key==="bottom"; });
-  var jacketWear = advice.wear.find(function(i){ return i.key==="jacket"; });
+  var summary = getOutfitSummary(advice, wx, daily, hourly);
+  var dayArc  = getDayArcAdvice(advice, wx, hourly, prefs);
+  var base    = advice.wear.filter(function(i){ return i.key==="shirt"||i.key==="bottom"; });
+  var jacketWear  = advice.wear.find(function(i){ return i.key==="jacket"; });
   var jacketBring = advice.bring.find(function(i){ return i.key==="jacket"; });
   var optionalItems = advice.bring.filter(function(i){ return i.key!=="jacket"; });
   if (jacketBring) optionalItems = [jacketBring].concat(optionalItems);
   var notNeeded = advice.leave;
-
-  var comfortColor = function(score) {
-    return score >= 80 ? "#4ade80" : score >= 60 ? "#a3e635" : score >= 40 ? "#fbbf24" : "#f87171";
-  };
   var comfort = computeComfort(wx.temp, wx.humidity, wx.wind, wx.precipChance, wx.uvIndex, prefs.temperatureSensitivity);
-  var cColor = comfortColor(comfort.score);
+  var cColor = comfort.score >= 80 ? "#4ade80" : comfort.score >= 60 ? "#a3e635" : comfort.score >= 40 ? "#fbbf24" : "#f87171";
 
   return (
     <div style={{marginBottom:16}}>
@@ -952,56 +1091,95 @@ function ClothingCard({wx, prefs}) {
 
       {/* ── SUMMARY CARD ── */}
       <Card style={{padding:"16px 16px 14px",marginBottom:10}}>
-        {/* Title row */}
         <div style={{display:"flex",alignItems:"flex-start",gap:14,marginBottom:12}}>
           <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:22}}>
-            {base.length ? base[0].emoji : "👕"}
+            {base.length ? base[0].emoji : "\U0001F455"}
           </div>
           <div style={{flex:1}}>
             <div style={{fontFamily:"'Fraunces',serif",fontSize:18,fontWeight:300,color:"#f1f5f9",lineHeight:1.2,marginBottom:3}}>{summary.title}</div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>{summary.reasoning}</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.55}}>{summary.reasoning}</div>
           </div>
         </div>
 
-        {/* Quick chips — wear items */}
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:jacketWear||jacketBring?10:0}}>
+        {/* Quick chips */}
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:10}}>
           {base.map(function(item){
             return (
-              <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(255,255,255,0.08)",borderRadius:20,border:"1px solid rgba(255,255,255,0.12)"}}>
-                <span style={{fontSize:15}}>{item.emoji}</span>
+              <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",background:"rgba(255,255,255,0.09)",borderRadius:20,border:"1px solid rgba(255,255,255,0.12)"}}>
+                <span style={{fontSize:14}}>{item.emoji}</span>
                 <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.8)",fontWeight:500}}>{item.label}</span>
               </div>
             );
           })}
           {jacketWear && (
-            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(255,255,255,0.06)",borderRadius:20,border:"1px solid rgba(255,255,255,0.1)"}}>
-              <span style={{fontSize:15}}>{jacketWear.emoji}</span>
-              <div>
-                <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{jacketWear.label}</span>
-              </div>
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",background:"rgba(255,255,255,0.07)",borderRadius:20,border:"1px solid rgba(255,255,255,0.1)"}}>
+              <span style={{fontSize:14}}>{jacketWear.emoji}</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{jacketWear.label}</span>
             </div>
           )}
-          {jacketBring && !jacketWear && (
-            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"rgba(251,191,36,0.08)",borderRadius:20,border:"1px solid rgba(251,191,36,0.2)"}}>
-              <span style={{fontSize:15}}>{jacketBring.emoji}</span>
-              <div>
-                <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(251,191,36,0.8)",fontWeight:500}}>{jacketBring.label}</span>
-                <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(251,191,36,0.55)",marginLeft:4}}>(optional)</span>
-              </div>
+          {!jacketWear && jacketBring && (
+            <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",background:"rgba(251,191,36,0.08)",borderRadius:20,border:"1px solid rgba(251,191,36,0.2)"}}>
+              <span style={{fontSize:14}}>{jacketBring.emoji}</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(251,191,36,0.8)",fontWeight:500}}>{jacketBring.label}</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(251,191,36,0.5)"}}>(morning)</span>
             </div>
           )}
         </div>
 
-        {/* Expand toggle */}
+        {/* Day arc banner — only when spread is significant */}
+        {summary.timeAdvice && (
+          <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"10px 12px",marginBottom:10,border:"1px solid rgba(255,255,255,0.08)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+              <span style={{fontSize:14}}>&#x1F321;&#xFE0F;</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.5)",letterSpacing:"0.08em",textTransform:"uppercase"}}>Today's range: {summary.valleyTemp}° \u2192 {summary.peakTemp}°</span>
+            </div>
+            <div style={{display:"flex",gap:0,marginBottom:6}}>
+              <div style={{flex:1,borderRight:"1px solid rgba(255,255,255,0.06)",paddingRight:10}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2}}>Morning</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)"}}>{summary.timeAdvice.morning}</div>
+              </div>
+              <div style={{flex:1,paddingLeft:10}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.35)",marginBottom:2}}>Afternoon</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.7)"}}>{summary.timeAdvice.afternoon}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button onClick={function(){setExpanded(function(p){return !p;});}} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.35)",fontFamily:"'DM Sans'",fontSize:11,padding:"4px 0 0",letterSpacing:"0.04em"}}>
           {expanded ? "Hide details" : "View details"}
           <Icon name={expanded?"ChevronUp":"ChevronDown"} size={11}/>
         </button>
       </Card>
 
-      {/* ── EXPANDED DETAIL ── */}
+      {/* ── EXPANDED ── */}
       {expanded && (
         <div style={{animation:"fadeIn 0.25s ease"}}>
+
+          {/* Day-arc timeline — only if meaningful spread */}
+          {dayArc && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,paddingLeft:2}}>Plan for the Day</div>
+              <div style={{display:"flex",gap:8}}>
+                {dayArc.map(function(slot, idx){
+                  return (
+                    <Card key={slot.label} style={{flex:1,padding:"12px 10px",background:idx===0?"rgba(255,255,255,0.07)":idx===1&&slot.adjTemp>=72?"rgba(245,158,11,0.08)":"rgba(255,255,255,0.05)"}}>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{slot.label}</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:300,color:"#f1f5f9",lineHeight:1,marginBottom:4}}>{slot.temp}°</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6,lineHeight:1.4}}>{slot.note}</div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {slot.items.slice(0,3).map(function(it){
+                          return (
+                            <span key={it.label} style={{fontSize:14}} title={it.label}>{it.emoji}</span>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Base layer */}
           {base.length > 0 && (
@@ -1009,8 +1187,8 @@ function ClothingCard({wx, prefs}) {
               <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Base Layer</div>
               {base.map(function(item){
                 var desc = item.key==="shirt"
-                  ? (wx.feelsLike>=72?"Warm daytime temperatures.":"Cooler conditions — long sleeves keep you comfortable.")
-                  : (wx.feelsLike>=70?"Warm enough for shorts.":"Pants will keep your legs comfortable.");
+                  ? (wx.feelsLike>=72 ? "Warm conditions all day." : wx.feelsLike>=60 ? "Comfortable for most of the day." : "Cooler conditions — long sleeves keep you comfortable.")
+                  : (wx.feelsLike>=70 ? (summary.spread>=18 ? "Warm afternoon — shorts work. Bring pants if it cools off." : "Warm enough for shorts.") : "Pants will keep your legs comfortable.");
                 return (
                   <Card key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8}}>
                     <span style={{fontSize:22,flexShrink:0}}>{item.emoji}</span>
@@ -1027,13 +1205,18 @@ function ClothingCard({wx, prefs}) {
           {/* Optional layer */}
           {optionalItems.length > 0 && (
             <div style={{marginBottom:8}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Optional Layer</div>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Optional</div>
               {optionalItems.map(function(item){
-                var desc = item.key==="jacket"
-                  ? (wx.wind>=15?"Wind makes a light layer worth having.":"Cooler start to the morning.")
-                  : item.key==="umbrella"
-                  ? (wx.precipChance>=50?"Rain is likely.":"Light chance of rain.")
-                  : "Depends on how long you're outside.";
+                var desc;
+                if (item.key==="jacket") {
+                  if (summary.timeAdvice) desc = "Needed in the morning (" + (summary.valleyTemp||wx.low) + "°) \u2014 you can shed it once it warms up.";
+                  else if (wx.wind >= 15) desc = "Wind at " + wx.wind + " mph makes a layer worth having.";
+                  else desc = "Cooler start to the morning.";
+                } else if (item.key==="umbrella") {
+                  desc = summary.rainWindow ? "Rain expected around " + summary.rainWindow + "." : "Some rain possible.";
+                } else {
+                  desc = "Depends on how long you're outside.";
+                }
                 return (
                   <Card key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:8,background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.15)"}}>
                     <span style={{fontSize:22,flexShrink:0}}>{item.emoji}</span>
@@ -1053,20 +1236,20 @@ function ClothingCard({wx, prefs}) {
               <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6,paddingLeft:2}}>Not Needed</div>
               <Card style={{padding:"6px 0"}}>
                 {notNeeded.map(function(item, idx){
-                  var reason = item.key==="umbrella"?"No rain expected"
-                    : item.key==="sunscreen"?"UV index is low"
-                    : item.key==="gloves"?"Temperatures are comfortable"
-                    : item.key==="beanie"?"No need for extra warmth today"
+                  var reason = item.key==="umbrella" ? "No rain expected"
+                    : item.key==="sunscreen" ? "UV index is low"
+                    : item.key==="gloves" ? "Temperatures are comfortable"
+                    : item.key==="beanie" ? "No need for extra warmth today"
                     : "Not necessary today";
                   return (
                     <div key={item.key} style={{display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:idx<notNeeded.length-1?"1px solid rgba(255,255,255,0.05)":"none"}}>
-                      <span style={{fontSize:18,marginRight:12,opacity:0.5}}>{item.emoji}</span>
+                      <span style={{fontSize:18,marginRight:12,opacity:0.45}}>{item.emoji}</span>
                       <div style={{flex:1}}>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:13,color:"rgba(255,255,255,0.45)",fontWeight:500}}>{item.label}</span>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.25)",marginLeft:8}}>{reason}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:13,color:"rgba(255,255,255,0.4)",fontWeight:500}}>{item.label}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.22)",marginLeft:8}}>{reason}</span>
                       </div>
-                      <div style={{width:18,height:18,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <Icon name="X" size={10} style={{color:"rgba(255,255,255,0.25)"}}/>
+                      <div style={{width:18,height:18,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <Icon name="X" size={10} style={{color:"rgba(255,255,255,0.2)"}}/>
                       </div>
                     </div>
                   );
@@ -1076,12 +1259,15 @@ function ClothingCard({wx, prefs}) {
           )}
 
           {/* Why box */}
-          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:"10px 14px",border:"1px solid rgba(255,255,255,0.07)"}}>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>
-              <span style={{color:"rgba(255,255,255,0.3)",fontWeight:600,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",marginRight:8}}>Why</span>
-              {wx.description} conditions with {wx.feelsLike >= 65 ? "warm" : wx.feelsLike >= 50 ? "mild" : "cool"} feels-like temperature
-              {wx.wind >= 15 ? ", gusty winds" : ""}
-              {wx.precipChance >= 30 ? " and a chance of rain" : ""}.
+          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:"10px 14px",border:"1px solid rgba(255,255,255,0.07)",marginBottom:4}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.65}}>
+              <span style={{color:"rgba(255,255,255,0.28)",fontWeight:600,fontSize:10,letterSpacing:"0.08em",textTransform:"uppercase",marginRight:8}}>Why</span>
+              {summary.spread >= 18
+                ? "Today swings from " + (daily&&daily[0]?daily[0].low:wx.low) + "° to " + (daily&&daily[0]?daily[0].high:wx.high) + "° — dress in layers you can add or remove throughout the day."
+                : (wx.description + " with " + (wx.feelsLike>=65?"warm":wx.feelsLike>=50?"mild":"cool") + " feels-like temperature"
+                  + (wx.wind>=15?", gusty winds":"")
+                  + (wx.precipChance>=30?" and a chance of rain":"")
+                  + ".")}
             </div>
           </div>
         </div>
@@ -1089,6 +1275,7 @@ function ClothingCard({wx, prefs}) {
     </div>
   );
 }
+
 
 // ── DAILY FORECAST ────────────────────────────────────────────────
 function DailyForecast({daily}){
@@ -1500,7 +1687,7 @@ function App(){
               {/* Today: clothing first, then timing/commute/insights */}
               {tab==="today"&&wx&&!isLoading&&(
                 <div style={{animation:"fadeIn 0.4s ease"}}>
-                  <ClothingCard wx={wx.current} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
                   <CommuteCard hourly={wx.hourly} prefs={prefs}/>
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
@@ -1556,7 +1743,7 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <PlanningConfidenceCard hourly={wx.hourly}/>
                   <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
-                  <ClothingCard wx={wx.current} prefs={prefs}/>
+                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
                   <CommuteCard hourly={wx.hourly} prefs={prefs}/>
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
