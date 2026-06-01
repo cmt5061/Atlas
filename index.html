@@ -855,7 +855,7 @@ function EnvironmentalTimeline({hourly,prefs}){
                 <div style={{fontFamily:"'Fraunces',serif",fontSize:16,fontWeight:300,color:isCur?"#fff":isGood?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.55)",lineHeight:1}}>{h.temp}°</div>
                 <div style={{width:18,height:2,background:"rgba(255,255,255,0.12)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:comfort.score+"%",background:isGood?"#4ade80":"#fbbf24",borderRadius:2}}/></div>
                 <div style={{fontFamily:"'DM Sans'",fontSize:10,color:isCur?"rgba(255,255,255,0.95)":"rgba(255,255,255,0.4)"}}>{isCur?"Now":h.hourLabel}</div>
-                {showRain&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:"#93c5fd"}}>{h.precipChance}%</div>}
+                {h.precipChance>=30&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:"#93c5fd"}}>{h.precipChance}%</div>}
               </div>
             );
           })}
