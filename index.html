@@ -751,15 +751,31 @@ function transformWeather(raw){
       precipChance:h.precipitation_probability[idx]||0,wind:Math.round(h.windspeed_10m[idx]),
       humidity:h.relativehumidity_2m[idx]||0,uvIndex:Math.round(h.uv_index[idx]||0)});
   }
+  // Tomorrow's hourly — find where tomorrow's date starts in the API response
+  const tomorrowDate=d.time[1]||"";
+  const tomorrowHourly=[];
+  if(tomorrowDate){
+    const tStart=h.time.findIndex(t=>t.startsWith(tomorrowDate));
+    if(tStart>=0){
+      for(let i=0;i<24;i++){
+        const idx=tStart+i;if(idx>=h.time.length)break;
+        const hr=parseInt(h.time[idx].slice(11,13),10);
+        tomorrowHourly.push({hour:hr,hourLabel:(hr%12||12)+(hr<12?"a":"p"),temp:Math.round(h.temperature_2m[idx]),
+          condition:wmoCondition(h.weathercode[idx]),wmoCode:h.weathercode[idx],
+          precipChance:h.precipitation_probability[idx]||0,wind:Math.round(h.windspeed_10m[idx]),
+          humidity:h.relativehumidity_2m[idx]||0,uvIndex:Math.round(h.uv_index[idx]||0)});
+      }
+    }
+  }
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const dailyOut=d.time.map((t,i)=>({
-    day:i===0?"Today":DAYS[new Date(t+"T12:00:00").getDay()],
+    day:i===0?"Today":DAYS[new Date(t+"T12:00:00").getDay()],fullDate:(function(){ var dd=new Date(t+"T12:00:00"); return DAYS[dd.getDay()]+", "+["January","February","March","April","May","June","July","August","September","October","November","December"][dd.getMonth()]+" "+dd.getDate(); })(),
     high:Math.round(d.temperature_2m_max[i]),low:Math.round(d.temperature_2m_min[i]),
     condition:wmoCondition(d.weathercode[i]),wmoCode:d.weathercode[i],
     precip:d.precipitation_probability_max[i]||0,wind:Math.round(d.windspeed_10m_max[i]),
     uvMax:Math.round((d.uv_index_max||[])[i]||0),
   }));
-  return{current,hourly:hourlyOut,daily:dailyOut,fetchedAt:Date.now()};
+  return{current,hourly:hourlyOut,tomorrowHourly,daily:dailyOut,fetchedAt:Date.now()};
 }
 
 // ── DEFAULTS ─────────────────────────────────────────────────────
@@ -814,6 +830,127 @@ function WeatherHero({wx,loc,prefs}){
   if(!wx)return null;
   const comfort=computeComfort(wx.temp,wx.humidity,wx.wind,wx.precipChance,wx.uvIndex,prefs.temperatureSensitivity);
   return(<div style={{padding:"12px 20px 0",textAlign:"center",animation:"fadeIn 0.6s ease"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}><Icon name="MapPin" size={11} style={{color:"rgba(255,255,255,0.55)"}}/><span style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.65)",letterSpacing:"0.12em",textTransform:"uppercase"}}>{loc.name}{loc.region?", "+loc.region:""}{loc.isCurrentLocation?" 📍":""}</span></div><div style={{fontFamily:"'Fraunces',serif",fontSize:96,fontWeight:300,color:"#fff",lineHeight:1,letterSpacing:"-4px",textShadow:"0 2px 30px rgba(0,0,0,0.4)"}}>{wx.temp}°</div><div style={{fontFamily:"'DM Sans'",fontSize:17,color:"rgba(255,255,255,0.9)",marginTop:4,textShadow:"0 1px 8px rgba(0,0,0,0.5)"}}>{wmoEmoji(wx.wmoCode)} {wx.description}</div><ComfortIndicator score={comfort.score} category={comfort.category}/><div style={{display:"flex",justifyContent:"center",gap:18,marginTop:8,paddingBottom:4}}>{[{label:"H:"+wx.high+"° / L:"+wx.low+"°"},{label:"Feels "+wx.feelsLike+"°"},{label:wx.wind+" mph"}].map(({label})=><span key={label} style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)",textShadow:"0 1px 4px rgba(0,0,0,0.5)"}}>{label}</span>)}</div></div>);
+}
+
+// ── TOMORROW PLAN CARD ──────────────────────────────────────────
+function TomorrowPlanCard({wx, prefs, daily, tomorrowHourly}) {
+  const [open, setOpen] = useState(false);
+  if (!wx || !daily || !daily[1] || !tomorrowHourly || !tomorrowHourly.length) return null;
+
+  var tmrw = daily[1];
+  var dateLabel = tmrw.fullDate || tmrw.day;
+
+  // Build a synthetic "tomorrow wx" for clothing engine using tomorrow's daily high/low
+  var midpointTemp = Math.round((tmrw.high + tmrw.low) / 2);
+  var avgWind = tomorrowHourly.reduce(function(a,h){return a+h.wind;},0)/tomorrowHourly.length;
+  var maxPrecip = tomorrowHourly.reduce(function(a,h){return Math.max(a,h.precipChance);},0);
+  var avgHumid = tomorrowHourly.reduce(function(a,h){return a+h.humidity;},0)/tomorrowHourly.length;
+  var tmrwWx = {
+    temp: midpointTemp,
+    feelsLike: midpointTemp,
+    wind: Math.round(avgWind),
+    precipChance: maxPrecip,
+    humidity: Math.round(avgHumid),
+    uvIndex: tmrw.uvMax || 0,
+    condition: tmrw.condition,
+    high: tmrw.high,
+    low: tmrw.low,
+    description: wmoDesc(tmrw.wmoCode)
+  };
+
+  var advice = getClothingAdvice(tmrwWx, prefs);
+  var arc = (advice && tomorrowHourly.length >= 4)
+    ? getDayArcAdvice(advice, tmrwWx, tomorrowHourly, prefs) : null;
+  var summary = advice ? getOutfitSummary(advice, tmrwWx, [tmrw], tomorrowHourly) : null;
+
+  var comfortColor = function(cat){
+    return cat==="excellent"?"#4ade80":cat==="good"?"#a3e635":cat==="fair"?"#fbbf24":"#f87171";
+  };
+  var comfort = computeComfort(midpointTemp, Math.round(avgHumid), Math.round(avgWind), maxPrecip, tmrw.uvMax||0, prefs.temperatureSensitivity);
+
+  return (
+    <div style={{marginBottom:16}}>
+      <SectionLabel>Plan for Tomorrow</SectionLabel>
+      <Card style={{padding:"14px 16px"}}>
+        {/* Header row */}
+        <div onClick={function(){setOpen(function(p){return !p;});}} style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
+          <div style={{fontSize:26,flexShrink:0}}>{wmoEmoji(tmrw.wmoCode)}</div>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.4)",marginBottom:2,letterSpacing:"0.06em"}}>{dateLabel}</div>
+            <div style={{fontFamily:"'Fraunces',serif",fontSize:19,fontWeight:300,color:"#f1f5f9",lineHeight:1.2}}>{summary?summary.title:tmrw.day}</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)"}}>{"H:"+tmrw.high+"° / L:"+tmrw.low+"°"}</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:11,color:comfortColor(comfort.category),fontWeight:600}}>{comfort.category.charAt(0).toUpperCase()+comfort.category.slice(1)} comfort</span>
+            </div>
+          </div>
+          <Icon name={open?"ChevronUp":"ChevronDown"} size={16} style={{color:"rgba(255,255,255,0.3)",flexShrink:0}}/>
+        </div>
+
+        {/* Collapsed summary line */}
+        {!open && summary && summary.reasoning && (
+          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",marginTop:8,lineHeight:1.5,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.06)"}}>{summary.reasoning}</div>
+        )}
+
+        {/* Expanded: arc cards + clothing overview */}
+        {open && (
+          <div style={{marginTop:12,animation:"fadeIn 0.25s ease"}}>
+            {/* Day arc */}
+            {arc && (
+              <div style={{marginBottom:14}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,paddingLeft:2}}>{"Day Arc — "+dateLabel}</div>
+                <div style={{display:"flex",gap:8}}>
+                  {arc.map(function(slot,i){
+                    return (
+                      <Card key={slot.label} style={{flex:1,padding:"11px 10px",background:i===0?"rgba(255,255,255,0.07)":i===1&&slot.adjTemp>=72?"rgba(245,158,11,0.07)":"rgba(255,255,255,0.04)"}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>{slot.label}</div>
+                        <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:300,color:"#f1f5f9",lineHeight:1,marginBottom:3}}>{slot.temp}&deg;</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:5,lineHeight:1.4}}>{slot.note}</div>
+                        <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                          {slot.items.slice(0,3).map(function(it){
+                            return <span key={it.label} title={it.label} style={{fontSize:14}} dangerouslySetInnerHTML={{__html:it.emoji}}/>;
+                          })}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quick clothing chips */}
+            {advice && (
+              <div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,paddingLeft:2}}>What to Wear</div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:advice.bring.length?8:0}}>
+                  {advice.wear.map(function(item){
+                    return (
+                      <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",background:"rgba(255,255,255,0.08)",borderRadius:20,border:"1px solid rgba(255,255,255,0.12)"}}>
+                        <span style={{fontSize:14}} dangerouslySetInnerHTML={{__html:item.emoji}}/>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.75)",fontWeight:500}}>{item.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {advice.bring.length > 0 && (
+                  <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                    {advice.bring.map(function(item){
+                      return (
+                        <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",background:"rgba(251,191,36,0.07)",borderRadius:20,border:"1px solid rgba(251,191,36,0.18)"}}>
+                          <span style={{fontSize:14}} dangerouslySetInnerHTML={{__html:item.emoji}}/>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(251,191,36,0.75)",fontWeight:500}}>{item.label}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(251,191,36,0.45)"}}>(bring)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
 }
 
 // ── DAY ARC CARD (standalone, before rhythm) ─────────────────
@@ -1723,6 +1860,7 @@ function App(){
                       <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
                       <PlanningConfidenceCard hourly={wx.hourly}/>
                       <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly}/>
+                      <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
                       <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
                       <RawDetails wx={wx.current}/>
                     </div>
@@ -1792,6 +1930,7 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <PlanningConfidenceCard hourly={wx.hourly}/>
                   <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly}/>
+                  <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
                   <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
                   <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
