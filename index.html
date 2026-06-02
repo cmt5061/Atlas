@@ -816,6 +816,37 @@ function WeatherHero({wx,loc,prefs}){
   return(<div style={{padding:"12px 20px 0",textAlign:"center",animation:"fadeIn 0.6s ease"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:6}}><Icon name="MapPin" size={11} style={{color:"rgba(255,255,255,0.55)"}}/><span style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.65)",letterSpacing:"0.12em",textTransform:"uppercase"}}>{loc.name}{loc.region?", "+loc.region:""}{loc.isCurrentLocation?" 📍":""}</span></div><div style={{fontFamily:"'Fraunces',serif",fontSize:96,fontWeight:300,color:"#fff",lineHeight:1,letterSpacing:"-4px",textShadow:"0 2px 30px rgba(0,0,0,0.4)"}}>{wx.temp}°</div><div style={{fontFamily:"'DM Sans'",fontSize:17,color:"rgba(255,255,255,0.9)",marginTop:4,textShadow:"0 1px 8px rgba(0,0,0,0.5)"}}>{wmoEmoji(wx.wmoCode)} {wx.description}</div><ComfortIndicator score={comfort.score} category={comfort.category}/><div style={{display:"flex",justifyContent:"center",gap:18,marginTop:8,paddingBottom:4}}>{[{label:"H:"+wx.high+"° / L:"+wx.low+"°"},{label:"Feels "+wx.feelsLike+"°"},{label:wx.wind+" mph"}].map(({label})=><span key={label} style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.5)",textShadow:"0 1px 4px rgba(0,0,0,0.5)"}}>{label}</span>)}</div></div>);
 }
 
+// ── DAY ARC CARD (standalone, before rhythm) ─────────────────
+function DayArcCard({wx, prefs, hourly}) {
+  var advice = wx ? getClothingAdvice(wx, prefs) : null;
+  var dayArc = (wx && advice && hourly && hourly.length >= 4)
+    ? getDayArcAdvice(advice, wx, hourly, prefs) : null;
+  if (!dayArc) return null;
+  return (
+    <div style={{marginBottom:16}}>
+      <SectionLabel>Plan for the Day</SectionLabel>
+      <div style={{display:"flex",gap:8}}>
+        {dayArc.map(function(slot, idx){
+          return (
+            <Card key={slot.label} style={{flex:1,padding:"12px 10px",background:idx===0?"rgba(255,255,255,0.07)":idx===1&&slot.adjTemp>=72?"rgba(245,158,11,0.07)":"rgba(255,255,255,0.05)"}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{slot.label}</div>
+              <div style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:300,color:"#f1f5f9",lineHeight:1,marginBottom:4}}>{slot.temp}&deg;</div>
+              <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:7,lineHeight:1.4}}>{slot.note}</div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {slot.items.slice(0,3).map(function(it){
+                  return (
+                    <span key={it.label} title={it.label} style={{fontSize:15}} dangerouslySetInnerHTML={{__html:it.emoji}}/>
+                  );
+                })}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── ENVIRONMENTAL TIMELINE ────────────────────────────────────────
 function EnvironmentalTimeline({hourly,prefs}){
   if(!hourly||!hourly.length)return null;
@@ -1197,31 +1228,6 @@ function ClothingCard({wx, prefs, daily, hourly}) {
       {/* ── EXPANDED ── */}
       {expanded && (
         <div style={{animation:"fadeIn 0.25s ease"}}>
-
-          {/* Day-arc timeline — only if meaningful spread */}
-          {dayArc && (
-            <div style={{marginBottom:12}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,paddingLeft:2}}>Plan for the Day</div>
-              <div style={{display:"flex",gap:8}}>
-                {dayArc.map(function(slot, idx){
-                  return (
-                    <Card key={slot.label} style={{flex:1,padding:"12px 10px",background:idx===0?"rgba(255,255,255,0.07)":idx===1&&slot.adjTemp>=72?"rgba(245,158,11,0.08)":"rgba(255,255,255,0.05)"}}>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:"rgba(255,255,255,0.4)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{slot.label}</div>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:300,color:"#f1f5f9",lineHeight:1,marginBottom:4}}>{slot.temp}°</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6,lineHeight:1.4}}>{slot.note}</div>
-                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                        {slot.items.slice(0,3).map(function(it){
-                          return (
-                            <span key={it.label} style={{fontSize:14}} title={it.label} dangerouslySetInnerHTML={{__html:it.emoji}}/>
-                          );
-                        })}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Base layer */}
           {base.length > 0 && (
@@ -1716,6 +1722,7 @@ function App(){
                     <div style={{animation:"fadeIn 0.4s ease"}}>
                       <AlertBanner alerts={alerts} onDismiss={dismissAlert}/>
                       <PlanningConfidenceCard hourly={wx.hourly}/>
+                      <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly}/>
                       <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
                       <RawDetails wx={wx.current}/>
                     </div>
@@ -1784,6 +1791,7 @@ function App(){
               {tab==="today"&&wx&&!isLoading&&(
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <PlanningConfidenceCard hourly={wx.hourly}/>
+                  <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly}/>
                   <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
                   <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
