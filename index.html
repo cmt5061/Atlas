@@ -555,33 +555,33 @@ function getClothingAdvice(wx, prefs) {
     bucket.push({ key:key, label:label, emoji:emoji, status:status });
   }
   // Shirt sleeve
-  if (adj >= 72) add("shirt", "Short sleeve", "&#128085;", "wear");
-  else add("shirt", "Long sleeve", "&#128084;", "wear");
+  if (adj >= 72) add("shirt", "Short sleeve", "👕", "wear");
+  else add("shirt", "Long sleeve", "👔", "wear");
   // Bottoms
-  if (adj >= 70) add("bottom", "Shorts", "&#129651;", "wear");
-  else add("bottom", "Pants", "&#128086;", "wear");
+  if (adj >= 70) add("bottom", "Shorts", "🩳", "wear");
+  else add("bottom", "Pants", "👖", "wear");
   // Jacket
-  if (adj <= 28) add("jacket", "Heavy coat", "&#129509;", "wear");
-  else if (adj <= 42) add("jacket", "Heavy jacket", "&#129509;", "wear");
-  else if (adj <= 55) add("jacket", "Light jacket", "&#129509;", "wear");
-  else if (adj <= 65) add("jacket", "Light jacket", "&#129509;", "bring");
-  else add("jacket", "Jacket", "&#129509;", "leave");
+  if (adj <= 28) add("jacket", "Heavy coat", "🧥", "wear");
+  else if (adj <= 42) add("jacket", "Heavy jacket", "🧥", "wear");
+  else if (adj <= 55) add("jacket", "Light jacket", "🧥", "wear");
+  else if (adj <= 65) add("jacket", "Light jacket", "🧥", "bring");
+  else add("jacket", "Jacket", "🧥", "leave");
   // Beanie
-  if (adj <= 38) add("beanie", "Beanie", "&#129506;", "wear");
-  else if (adj <= 50) add("beanie", "Beanie", "&#129506;", "bring");
-  else add("beanie", "Beanie", "&#129506;", "leave");
+  if (adj <= 38) add("beanie", "Beanie", "🧢", "wear");
+  else if (adj <= 50) add("beanie", "Beanie", "🧢", "bring");
+  else add("beanie", "Beanie", "🧢", "leave");
   // Gloves
-  if (adj <= 30) add("gloves", "Gloves", "&#129508;", "wear");
-  else if (adj <= 44) add("gloves", "Gloves", "&#129508;", "bring");
-  else add("gloves", "Gloves", "&#129508;", "leave");
+  if (adj <= 30) add("gloves", "Gloves", "🧤", "wear");
+  else if (adj <= 44) add("gloves", "Gloves", "🧤", "bring");
+  else add("gloves", "Gloves", "🧤", "leave");
   // Umbrella
-  if (precip >= 65) add("umbrella", "Umbrella", "&#9730;&#65039;", "bring");
-  else if (precip >= 35) add("umbrella", "Umbrella", "&#9730;&#65039;", "consider");
-  else add("umbrella", "Umbrella", "&#9730;&#65039;", "leave");
+  if (precip >= 65) add("umbrella", "Umbrella", "☂️", "bring");
+  else if (precip >= 35) add("umbrella", "Umbrella", "☂️", "consider");
+  else add("umbrella", "Umbrella", "☂️", "leave");
   // Sunscreen
-  if (uv >= 6) add("sunscreen", "Sunscreen", "&#129524;", "apply");
-  else if (uv >= 3) add("sunscreen", "Sunscreen", "&#129524;", "bring");
-  else add("sunscreen", "Sunscreen", "&#129524;", "leave");
+  if (uv >= 6) add("sunscreen", "Sunscreen", "🧴", "apply");
+  else if (uv >= 3) add("sunscreen", "Sunscreen", "🧴", "bring");
+  else add("sunscreen", "Sunscreen", "🧴", "leave");
   return { wear:wear, bring:bring, leave:leave };
 }
 
@@ -1089,15 +1089,15 @@ function getDayArcAdvice(advice, wx, hourly, prefs) {
 
 function buildSlotItems(adjTemp, precipChance, uvIndex) {
   var items = [];
-  if (adjTemp >= 72) items.push({ emoji: "&#128085;", label: "Short sleeve" });
-  else items.push({ emoji: "&#128084;", label: "Long sleeve" });
-  if (adjTemp >= 70) items.push({ emoji: "&#129651;", label: "Shorts" });
-  else items.push({ emoji: "&#128086;", label: "Pants" });
-  if (adjTemp <= 42) items.push({ emoji: "&#129509;", label: "Heavy jacket" });
-  else if (adjTemp <= 55) items.push({ emoji: "&#129509;", label: "Light jacket" });
-  else if (adjTemp <= 65) items.push({ emoji: "&#129509;", label: "Jacket (opt.)" });
+  if (adjTemp >= 72) items.push({ emoji: "👕", label: "Short sleeve" });
+  else items.push({ emoji: "👔", label: "Long sleeve" });
+  if (adjTemp >= 70) items.push({ emoji: "🩳", label: "Shorts" });
+  else items.push({ emoji: "👖", label: "Pants" });
+  if (adjTemp <= 42) items.push({ emoji: "🧥", label: "Heavy jacket" });
+  else if (adjTemp <= 55) items.push({ emoji: "🧥", label: "Light jacket" });
+  else if (adjTemp <= 65) items.push({ emoji: "🧥", label: "Jacket (opt.)" });
   if (precipChance >= 50) items.push({ emoji: "\u2602\uFE0F", label: "Umbrella" });
-  if (uvIndex >= 6 && adjTemp >= 65) items.push({ emoji: "&#129524;", label: "Sunscreen" });
+  if (uvIndex >= 6 && adjTemp >= 65) items.push({ emoji: "🧴", label: "Sunscreen" });
   return items;
 }
 
