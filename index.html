@@ -1882,13 +1882,6 @@ function App(){
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
                 </div>
               )}
-              {tab==="plan"&&wx&&!isLoading&&(
-                <div style={{animation:"fadeIn 0.4s ease"}}>
-                  <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly} daily={wx.daily}/>
-                  <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
-                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
-                </div>
-              )}
               {/* Plan tab */}
               {tab==="plan"&&wx&&!isLoading&&(
                 <div style={{animation:"fadeIn 0.4s ease"}}>
@@ -1947,11 +1940,17 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <PlanningConfidenceCard hourly={wx.hourly}/>
                   <EnvironmentalTimeline hourly={wx.hourly} prefs={prefs}/>
-                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                   <BestTimeCards hourly={wx.hourly} prefs={prefs}/>
                   <CommuteCard hourly={wx.hourly} prefs={prefs}/>
                   <InsightList current={wx.current} hourly={wx.hourly} sigs={signals} prefs={prefs}/>
                   <RawDetails wx={wx.current}/>
+                </div>
+              )}
+              {tab==="plan"&&wx&&!isLoading&&(
+                <div style={{animation:"fadeIn 0.4s ease"}}>
+                  <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly} daily={wx.daily}/>
+                  <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
+                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                 </div>
               )}
               {tab==="forecast"&&wx&&!isLoading&&<DailyForecast daily={wx.daily}/>}
