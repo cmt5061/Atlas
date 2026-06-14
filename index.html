@@ -871,7 +871,9 @@ function TomorrowPlanCard({wx, prefs, daily, tomorrowHourly}) {
 
   return (
     <div style={{marginBottom:16}}>
-      <SectionLabel>Plan for Tomorrow</SectionLabel>
+      <div style={{marginBottom:12}}>
+        <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:300,color:"rgba(255,255,255,0.9)"}}>Plan for Tomorrow</div>
+      </div>
       <Card style={{padding:"14px 16px"}}>
         {/* Header row */}
         <div onClick={function(){setOpen(function(p){return !p;});}} style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
@@ -963,9 +965,9 @@ function DayArcCard({wx, prefs, hourly, daily}) {
   var todayDate = (daily && daily[0] && daily[0].fullDate) ? daily[0].fullDate : "Today";
   return (
     <div style={{marginBottom:16}}>
-      <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:10}}>
-        <div style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.3)",letterSpacing:"0.14em",textTransform:"uppercase"}}>Plan for the Day</div>
-        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.3)",letterSpacing:"0.04em"}}>{todayDate}</div>
+      <div style={{marginBottom:12}}>
+        <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:300,color:"rgba(255,255,255,0.9)",marginBottom:2}}>Plan for the Day</div>
+        <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:"0.03em"}}>{todayDate}</div>
       </div>
       <div style={{display:"flex",gap:8}}>
         {dayArc.map(function(slot, idx){
@@ -1887,7 +1889,6 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly} daily={wx.daily}/>
                   <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
-                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                 </div>
               )}
               {/* Forecast on right */}
@@ -1950,7 +1951,6 @@ function App(){
                 <div style={{animation:"fadeIn 0.4s ease"}}>
                   <DayArcCard wx={wx.current} prefs={prefs} hourly={wx.hourly} daily={wx.daily}/>
                   <TomorrowPlanCard wx={wx.current} prefs={prefs} daily={wx.daily} tomorrowHourly={wx.tomorrowHourly||[]}/>
-                  <ClothingCard wx={wx.current} prefs={prefs} daily={wx.daily} hourly={wx.hourly}/>
                 </div>
               )}
               {tab==="forecast"&&wx&&!isLoading&&<DailyForecast daily={wx.daily}/>}
